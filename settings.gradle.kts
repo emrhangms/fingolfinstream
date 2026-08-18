@@ -1,3 +1,3 @@
 rootProject.name = "fingolfinstream"
 
-include(":CizgiVeDizi")
+include("CizgiVeDizi")

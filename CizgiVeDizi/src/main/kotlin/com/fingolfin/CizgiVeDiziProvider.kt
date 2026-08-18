@@ -3,11 +3,9 @@ package com.fingolfin
 import android.util.Base64
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.json.JSONArray
-import org.jsoup.nodes.Element
 
 class CizgiVeDiziProvider : MainAPI() {
     override var mainUrl = "https://cizgivedizi.com"
@@ -109,19 +107,18 @@ class CizgiVeDiziProvider : MainAPI() {
         val results = mutableListOf<SearchResponse>()
 
         // Sitenin AJAX arama uç noktaları (Dizi ve Film aramaları)
-        val diziSearchUrl = "$mainUrl/dizi/any?ajax=search&q=${encodeUrl(query)}"
-        val filmSearchUrl = "$mainUrl/film/any?ajax=search&q=${encodeUrl(query)}"
+        val encodedQ = java.net.URLEncoder.encode(query, "UTF-8")
+        val diziSearchUrl = "$mainUrl/dizi/any?ajax=search&q=$encodedQ"
+        val filmSearchUrl = "$mainUrl/film/any?ajax=search&q=$encodedQ"
 
         val diziList = try {
-            val res = app.get(diziSearchUrl, headers = headers).text
-            parseJson<List<SearchResultItem>>(res)
+            app.get(diziSearchUrl, headers = headers).parsedSafe<List<SearchResultItem>>() ?: emptyList()
         } catch (_: Exception) {
             emptyList()
         }
 
         val filmList = try {
-            val res = app.get(filmSearchUrl, headers = headers).text
-            parseJson<List<SearchResultItem>>(res)
+            app.get(filmSearchUrl, headers = headers).parsedSafe<List<SearchResultItem>>() ?: emptyList()
         } catch (_: Exception) {
             emptyList()
         }
@@ -189,12 +186,11 @@ class CizgiVeDiziProvider : MainAPI() {
                         ?: Regex("/(\\d+)/").find(epHref)?.groupValues?.get(1)?.toIntOrNull()
 
                     episodes.add(
-                        Episode(
-                            data = epHref,
-                            name = epName,
-                            season = seasonNum,
-                            episode = epNum
-                        )
+                        newEpisode(epHref) {
+                            this.name = epName
+                            this.season = seasonNum
+                            this.episode = epNum
+                        }
                     )
                 }
             }
@@ -207,15 +203,15 @@ class CizgiVeDiziProvider : MainAPI() {
                 val epHref = fixUrlNull(row.attr("href")) ?: continue
                 val epName = row.selectFirst(".name")?.text()?.trim() ?: "Bölüm"
                 val epNum = row.attr("data-episode-id").toIntOrNull()
+                val epPoster = fixUrlNull(row.selectFirst("img")?.attr("src"))
 
                 episodes.add(
-                    Episode(
-                        data = epHref,
-                        name = epName,
-                        season = 1,
-                        episode = epNum,
-                        posterUrl = fixUrlNull(row.selectFirst("img")?.attr("src"))
-                    )
+                    newEpisode(epHref) {
+                        this.name = epName
+                        this.season = 1
+                        this.episode = epNum
+                        this.posterUrl = epPoster
+                    }
                 )
             }
         }
@@ -276,9 +272,5 @@ class CizgiVeDiziProvider : MainAPI() {
         }
 
         return embedUrls.isNotEmpty()
-    }
-
-    private fun encodeUrl(str: String): String {
-        return java.net.URLEncoder.encode(str, "UTF-8")
     }
 }
