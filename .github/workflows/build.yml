@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,9 +31,11 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.10.2'
 
       - name: Build Plugins
-        run: ./gradlew makePlugins
+        run: gradle makePlugins
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
